@@ -1,6 +1,4 @@
 import os
-
-import openai
 from openai import OpenAI
 import streamlit as st
 
@@ -21,7 +19,7 @@ class ConversationManager:
         # (No need to initialize history here, it will be handled in main())
         pass
 
-    def generate_ai_response(self, prompt, enable_streaming=False):
+    def generate_ai_response(self, prompt):
         """Generates a response from an AI model
 
         Args:
@@ -53,36 +51,29 @@ class ConversationManager:
             })
 
             completion = client.chat.completions.create(
-                model="meta/llama-3.3-70b-instruct",
+                model="meta/llama-3.1-405b-instruct",
                 temperature=0.5,  # Adjust temperature for creativity
                 top_p=1,
                 max_tokens=1024,
                 messages=messages,
-                stream=enable_streaming
+                stream=False
             )
 
-            # Update conversation history in the session state object
+            model_response = completion.choices[0].message.content
+
+            st.session_state.conversation_manager.conversation_history.append({
+                "role": "assistant",
+                "content": model_response
+            })
+
             st.session_state.conversation_manager.conversation_history.append({
                 "role": "assistant",
                 "content": completion.choices[0].message.content
-            })
-
-            if enable_streaming:
-                response_container = st.empty()
-                model_response = ""
-                for chunk in completion:
-                    if chunk.choices[0].delta.content is not None:
-                        model_response += chunk.choices[0].delta.content
-                        response_container.markdown(model_response)
-                    elif 'error' in chunk:
-                        st.error(f"Error occurred: {chunk['error']}")
-                        break
-                return model_response
-            else:
-                return completion.choices[0].message.content
-
+            })                
+            return model_response
+            
         except Exception as e:
-            print(f"Error: {e}")
+            st.error(f"Error handling AI response: {e}")
             return None
 
 
@@ -109,7 +100,7 @@ def main():
             user_prompt = f"Using {framework}, {app_details}"
             st.write("**Generated Prompt:**", user_prompt)
 
-            with st.spinner("Generating code..."):
+            with st.spinner("Thinking..."):
                 # Add the user message to the history FIRST
                 st.session_state.conversation_manager.conversation_history.append({"role": "user", "content": user_prompt})  
 
